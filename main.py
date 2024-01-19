@@ -1,14 +1,16 @@
 import os
 
-ROBOT_IP=os.environ['ROBOT_IP']
-SPOT_USERNAME=os.environ['SPOT_USERNAME']
-SPOT_PASSWORD=os.environ['SPOT_PASSWORD']
+ROBOT_IP="192.168.6.9"#os.environ['ROBOT_IP']
+SPOT_USERNAME="admin"#os.environ['SPOT_USERNAME']
+SPOT_PASSWORD="2zqa8dgw7lor"#os.environ['SPOT_PASSWORD']
 
 
 import bosdyn.client
 from bosdyn.client.robot_command import RobotCommandClient, blocking_stand
 from bosdyn.client.robot_command import RobotCommandBuilder
 from bosdyn.geometry import EulerZXY
+from bosdyn.client.estop import EstopClient, EstopEndpoint, EstopKeepAlive
+
 import time
 
 def main():
@@ -16,6 +18,14 @@ def main():
     # Create instance of robot and auth with credentials
     robot = sdk.create_robot(ROBOT_IP)
     robot.authenticate(SPOT_USERNAME, SPOT_PASSWORD)
+
+    # Setup and release E-Stop
+    estop_client = robot.ensure_client(EstopClient.default_service_name)
+    estop_endpoint = EstopEndpoint(estop_client, 'GNClient', 9.0)
+    estop_endpoint.force_simple_setup()
+    estop_keepalive = EstopKeepAlive(estop_endpoint)
+
+
     # Create lease client and take exclusive control over Spot.
     lease_client = robot.ensure_client('lease')
     lease = lease_client.take()
@@ -50,6 +60,22 @@ def main():
     # Change robot height
     cmd = RobotCommandBuilder.synchro_stand_command(body_height=0.1)
     command_client.robot_command(cmd)
+    time.sleep(5)
+    robot.power_off(cut_immediately=False)
+
+    time.sleep(1)
+
+    # Return lease
+    lease_client.return_lease(lease)
+    lease_keep_alive.shutdown()
+
+    # Set E-Stop back
+    try:
+        estop_keepalive.stop()
+    except:
+        self.robot.logger.error("Failed to set estop")
+        traceback.print_exc()
+    estop_keepalive.shutdown()
 
 if __name__=='__main__':
     main()
