@@ -1,4 +1,1 @@
 bosdyn-client
-bosdyn-mission
-bosdyn-choreography-client
-scipy
